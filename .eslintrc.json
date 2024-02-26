@@ -1,0 +1,25 @@
+{
+  "env": {
+    "jest/globals": true
+  },
+  "plugins": ["jest", "react"],
+  "extends": ["airbnb", "airbnb/hooks", "next/core-web-vitals", "prettier"],
+  "globals": {
+    "React": true
+  },
+  "rules": {
+    "arrow-body-style": [2, "always"],
+    "comma-dangle": [2, "always-multiline"],
+    "jsx-a11y/anchor-is-valid": "off",
+    "jsx-a11y/label-has-associated-control": "off",
+    "import/extensions": [0, "ignorePackages"],
+    "no-param-reassign": [2, { "props": false }],
+    "no-return-await": "off",
+    "no-trailing-spaces": "warn",
+    "quotes": [2, "single"],
+    "react/destructuring-assignment": "off",
+    "react/jsx-filename-extension": [2, { "extensions": [".tsx"] }],
+    "react/jsx-props-no-spreading": "off",
+    "semi": [2, "always"]
+  }
+}
