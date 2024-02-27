@@ -3,10 +3,10 @@ import { getToken } from 'next-auth/jwt';
 import type { ApiResponse, RecipeRating } from '@/types/APIResponses';
 import {
   HTTP_METHOD_NOT_ALLOWED,
-  HTTP_OK,
   HTTP_UNAUTHORIZED,
 } from '@/lib/html_codes';
 import createOrUpdateRating from '@/lib/prisma/rating/createOrUpdateRating';
+import { handleDatabaseResult } from '@/lib/prisma/common';
 
 const secret = process.env.SECRET;
 
@@ -29,9 +29,7 @@ export default async function handler(
       const { rid, rating } = request.body;
 
       const result = await createOrUpdateRating({ rid, uid, rating });
-      response.status(HTTP_OK);
-      response.json({ message: result.message, content: result.content });
-      response.end();
+      handleDatabaseResult(result, response);
       break;
     }
     default: {

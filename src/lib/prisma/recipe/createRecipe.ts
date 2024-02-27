@@ -13,14 +13,16 @@ export default async function createRecipe({
   ingredients,
   steps,
   authorId,
+  categories,
 }: {
   title: string;
   description: string;
   ingredients: [];
   steps: [];
   authorId: number;
+  categories: string[];
 }): Promise<databaseResult> {
-  const data = { title, description, ingredients, steps, authorId };
+  const data = { title, description, ingredients, steps, authorId, categories };
 
   const recipeSchema = object({
     title: string().required(),
@@ -34,6 +36,9 @@ export default async function createRecipe({
     ),
     steps: array().of(string().ensure()),
     authorId: number(),
+    categories: array()
+      .of(object({ name: string().ensure() }))
+      .required(),
   });
   try {
     await recipeSchema.validate(data);
@@ -53,17 +58,26 @@ export default async function createRecipe({
   }
   try {
     const castData = recipeSchema.cast(data);
-    const response = await prisma.recipe.create({
-      data: {
-        description: castData.description,
-        title: castData.title,
-        authorId: castData.authorId,
-        steps: castData.steps,
-        Ingredient: {
-          create: castData.ingredients,
+    const [response0, response] = await prisma.$transaction([
+      prisma.category.createMany({
+        data: castData.categories,
+        skipDuplicates: true,
+      }),
+      prisma.recipe.create({
+        data: {
+          description: castData.description,
+          title: castData.title,
+          authorId: castData.authorId,
+          steps: castData.steps,
+          Ingredient: {
+            create: castData.ingredients,
+          },
+          Category: {
+            connect: castData.categories,
+          },
         },
-      },
-    });
+      }),
+    ]);
     const result: databaseResult = {
       type: 'OK',
       message: 'OK',

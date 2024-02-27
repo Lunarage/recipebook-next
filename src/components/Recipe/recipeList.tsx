@@ -1,24 +1,21 @@
 import useSWR from 'swr';
 import { Container, Col, Row, Spinner } from 'react-bootstrap';
 import fetcher from '@/lib/fetcher';
-import { Recipe } from '@/types/APIResponses';
+import { ApiResponse, Recipe } from '@/types/APIResponses';
 import RecipeCard from './reicpeCard';
 
 type RecipeListProps = {
-  byAge?: boolean;
-  byRating?: boolean;
+  filters?: {
+    title: string;
+    categories: number[];
+  };
+  sort?: 'byRating' | 'byAge' | 'byTitle';
   limit?: number;
 };
 
 export default function RecipeList(props: RecipeListProps) {
-  let url = `/api/recipe?limit=${props.limit}`;
-  if (props.byAge) {
-    url += '&byAge=true';
-  }
-  if (props.byRating) {
-    url += '&byRating=true';
-  }
-  const { data, isLoading } = useSWR(url, fetcher);
+  const url = `/api/recipe?limit=${props.limit}&sort=${props.sort}&categories=${props.filters?.categories}&title=${props.filters?.title}`;
+  const { data, isLoading } = useSWR<ApiResponse<Recipe>>(url, fetcher);
   return (
     <Container
       fluid
@@ -27,7 +24,7 @@ export default function RecipeList(props: RecipeListProps) {
       {isLoading && <Spinner animation="border" />}
       {!isLoading && data && (
         <Row>
-          {data.content.map((recipe: Recipe) => {
+          {(data.content as Recipe[]).map((recipe: Recipe) => {
             return (
               <Col key={recipe.id} className="d-flex justify-content-stretch">
                 <RecipeCard recipe={recipe} />
@@ -41,7 +38,10 @@ export default function RecipeList(props: RecipeListProps) {
 }
 
 RecipeList.defaultProps = {
-  byAge: false,
-  byRating: false,
+  filters: {
+    title: '',
+    categories: [],
+  },
+  sort: 'byRating',
   limit: 3,
 };

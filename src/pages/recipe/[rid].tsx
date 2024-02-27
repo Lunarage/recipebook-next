@@ -1,7 +1,15 @@
 import { useRouter } from 'next/router';
 import useSWR from 'swr';
 import { useState } from 'react';
-import { Container, Row, Col, Button, Spinner } from 'react-bootstrap';
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Spinner,
+  Badge,
+  Stack,
+} from 'react-bootstrap';
 import { useSession } from 'next-auth/react';
 import fetcher from '@/lib/fetcher';
 import RecipeRatingBox from '@/components/Recipe/recipeRating';
@@ -88,6 +96,22 @@ export default function RecipePage() {
               size={32}
               withModal={withModal}
             />
+            <Stack
+              gap={2}
+              direction="horizontal"
+              className="border rounded-2 p-2 mt-2"
+            >
+              {recipe.Category.map((category) => {
+                return (
+                  <Badge
+                    key={category.id}
+                    className="d-flex align-items-center fs-6 pe-2 ps-2"
+                  >
+                    {category.name}
+                  </Badge>
+                );
+              })}
+            </Stack>
             <p className="mt-2 mb-1">{recipe.description}</p>
             {recipe.steps && (
               <>

@@ -1,4 +1,4 @@
-// import { ValidationError, array, number, object, string } from 'yup';
+import { ValidationError, array, number, object, string } from 'yup';
 // import {
 //   PrismaClientKnownRequestError,
 //   PrismaClientUnknownRequestError,
@@ -9,23 +9,57 @@ import type { databaseResult } from '@/lib/prisma/common';
 import type { Recipe } from '@/types/APIResponses';
 import prisma from '@/lib/prisma/prisma';
 
-export default async function getRecipes(
-  byRating: boolean = false,
-  byAge: boolean = false,
-  limit: number = 3,
-): Promise<databaseResult> {
+export default async function getRecipes({
+  filters,
+  sort,
+  limit,
+}: {
+  filters?: {
+    title?: string;
+    categories?: number[];
+  };
+  sort: string;
+  limit: number;
+}): Promise<databaseResult> {
+  const data = { filters, sort, limit };
+  const searchSchema = object({
+    filters: object({
+      title: string(),
+      categories: array().of(number()),
+    }),
+    sort: string(), // .matches(/(byAge) | (byRating) | (byTitle)/),
+    limit: number().min(1).required(),
+  });
   try {
-    if (byRating) {
-      // const response = await prisma.recipe.findMany({
-      //   include: {
-      //     author: { select: userFieldsMinimal },
-      //     Ingredient: true,
-      //     Category: true,
-      //     RecipeRating: true,
-      //   },
-      //   take: limit,
-      // });
-      const response = await prisma.$queryRaw<Recipe>`SELECT
+    await searchSchema.validate(data);
+  } catch (error: any) {
+    if (!(error instanceof ValidationError)) {
+      const result: databaseResult = {
+        type: 'UNKNOWN',
+        message: error.message,
+      };
+      return Promise.resolve(result);
+    }
+    const result: databaseResult = {
+      type: 'INVALID INPUT',
+      message: error.errors.join(),
+    };
+    return Promise.resolve(result);
+  }
+  try {
+    const {
+      sort: castSort,
+      limit: castLimit,
+      filters: castFilters,
+    } = searchSchema.cast(data);
+    if (castSort === 'byRating') {
+      const response = await prisma.$queryRaw<Recipe>`
+          WITH categories AS (
+            SELECT "Category".id, name, "B"
+            FROM "Category"
+            JOIN "_CategoryToRecipe" ON "A" = "Category".id
+          )
+          SELECT
           id,
           "createdAt",
           "updatedAt",
@@ -34,9 +68,9 @@ export default async function getRecipes(
           description,
           steps,
           (SELECT row_to_json(t)::jsonb FROM (SELECT "User".id, "User".username, "User".name FROM "User" WHERE "User".id = "Recipe"."authorId") t) as author,
-          (SELECT json_agg(json_build_object('id', id, 'name', name, 'amount', amount, 'unit', unit)) FROM (SELECT * FROM "Ingredient" WHERE "Ingredient"."recipeId" = "Recipe".id)) as "Ingredient",
-          -- (SELECT json_agg(json_build_object('id', id, 'name', name)) FROM (SELECT id, name FROM "Category" WHERE id IN (SELECT "A" FROM "_CategoryToRecipe" WHERE "B" = "Recipe".id))) as "Category"
-          (SELECT json_agg(json_build_object('rating', rating, 'recipeId', "recipeId", 'userId', "userId")) FROM (SELECT * FROM "RecipeRating" WHERE "RecipeRating"."recipeId" = "Recipe".id)) as "RecipeRating"
+          (SELECT COALESCE(json_agg(t.*), '[]'::json) FROM (SELECT * FROM "Ingredient" WHERE "Ingredient"."recipeId" = "Recipe".id) as t) as "Ingredient",
+          (SELECT COALESCE(json_agg(t.*), '[]'::json) FROM (SELECT id, name FROM categories WHERE "B" = "Recipe".id ) as t) as "Category",
+          (SELECT COALESCE(json_agg(t.*), '[]'::json) FROM (SELECT * FROM "RecipeRating" WHERE "RecipeRating"."recipeId" = "Recipe".id) as t) as "RecipeRating"
         FROM "Recipe" 
         ORDER BY (SELECT COALESCE(AVG(rating),0) FROM "RecipeRating" WHERE "recipeId" = "Recipe".id) DESC
         LIMIT ${limit}`;
@@ -47,32 +81,32 @@ export default async function getRecipes(
       };
       return Promise.resolve(result);
     }
-    if (byAge) {
-      const response = await prisma.recipe.findMany({
-        include: {
-          author: { select: userFieldsMinimal },
-          Ingredient: {
-            select: {
-              id: true,
-              name: true,
-              amount: true,
-              unit: true,
+    const sortToObject = {
+      byAge: { createdAt: 'desc' },
+      byTitle: { title: 'desc' },
+    };
+    const orderBy = sortToObject[castSort];
+    let where = {};
+    if (castFilters.categories?.length) {
+      where = {
+        Category: {
+          every: {
+            id: {
+              in: castFilters.categories,
             },
           },
-          Category: true,
-          RecipeRating: true,
         },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-      });
-      const result: databaseResult = {
-        type: 'OK',
-        message: 'OK',
-        content: response,
+        ...where,
       };
-      return Promise.resolve(result);
     }
+    if (castFilters.title) {
+      where = {
+        title: { contains: castFilters.title },
+      };
+    }
+    console.log(where);
     const response = await prisma.recipe.findMany({
+      where,
       include: {
         author: { select: userFieldsMinimal },
         Ingredient: {
@@ -86,7 +120,8 @@ export default async function getRecipes(
         Category: true,
         RecipeRating: true,
       },
-      take: limit || 3,
+      orderBy,
+      take: castLimit || 3,
     });
     const result: databaseResult = {
       type: 'OK',

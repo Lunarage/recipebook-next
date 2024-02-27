@@ -36,6 +36,8 @@ export default function CreateRecipe() {
   ]);
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [categorySearch, setCategorySearch] = useState<string>('');
+  const [categories, setCategories] = useState<string[]>([]);
 
   if (status === 'unauthenticated') {
     router.push('/login');
@@ -64,6 +66,9 @@ export default function CreateRecipe() {
           return step.text;
         }),
       description,
+      categories: categories.map((category) => {
+        return { name: category };
+      }),
     };
     fetch('/api/recipe/', {
       method: 'POST',
@@ -123,6 +128,20 @@ export default function CreateRecipe() {
       ingredientsCopy[targetIngredientIndex].name = target.value;
     }
     setIngredients(ingredientsCopy);
+  };
+
+  const addCategory = (): void => {
+    const categoriesCopy = categories.slice();
+    categoriesCopy.push(categorySearch);
+    setCategories(categoriesCopy);
+    setCategorySearch('');
+  };
+
+  const removeCategory = (categoryToRemove: string): void => {
+    const categoriesCopy = categories.filter((category) => {
+      return category !== categoryToRemove;
+    });
+    setCategories(categoriesCopy);
   };
 
   return (
@@ -239,21 +258,50 @@ export default function CreateRecipe() {
                 type="text"
                 placeholder="Search"
                 style={{ width: '15ch' }}
+                value={categorySearch}
+                onChange={(event) => {
+                  setCategorySearch(event.target.value);
+                }}
+                onKeyUp={(event) => {
+                  if (event.key === 'Enter') {
+                    addCategory();
+                  }
+                }}
               />
-              <Button type="button">
+              <Button
+                type="button"
+                onClick={() => {
+                  addCategory();
+                }}
+              >
                 <Plus size={24} />
               </Button>
             </InputGroup>
-            <Stack direction="horizontal" className="border rounded-2 p-2">
-              <Badge className="d-flex align-items-center fs-6 pe-1 ps-2">
-                Foo
-                <Button
-                  type="button"
-                  className="m-0 p-0 d-flex align-items-center"
-                >
-                  <X size={24} className="m-0 p-0" />
-                </Button>
-              </Badge>
+            <Stack
+              direction="horizontal"
+              gap={2}
+              className="border rounded-2 p-2"
+            >
+              {categories.map((category) => {
+                return (
+                  <Badge
+                    key={category}
+                    className="d-flex align-items-center fs-6 pe-1 ps-2"
+                  >
+                    {category}
+                    <Button
+                      type="button"
+                      className="m-0 p-0 d-flex align-items-center"
+                      data-key={category}
+                      onClick={() => {
+                        removeCategory(category);
+                      }}
+                    >
+                      <X size={24} className="m-0 p-0" />
+                    </Button>
+                  </Badge>
+                );
+              })}
             </Stack>
           </Col>
         </Row>
